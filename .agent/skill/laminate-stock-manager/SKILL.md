@@ -1,32 +1,47 @@
 # Laminate Stock Manager Skill
 
 ## Overview
-The `laminate-stock-manager` skill provides specialized knowledge, data schemas, validation routines, and catalog definitions for decorative laminate sheets, specifically tailored for the **Shiv Laminate (Pastel Colour Series)**.
+The `laminate-stock-manager` skill provides specialized knowledge, data schemas, validation routines, catalog definitions, and folder organization for decorative laminate sheets across both **Mobile (React Native / Expo)** and **Web (React + Tailwind)**.
+
+## Catalog Folders
+Laminates are organized into catalog book **Folders**:
+- **Pastel Colour** (Default Shiv Laminate Pastel Series): Contains 137 design SKUs across 11 architectural finishes.
+- **Custom Folders**: Dynamic user-defined folders (e.g. *Heavy Texture (HT)*, *Matt Silk (MS)*, *1.0mm Folder*, *Acrylic Collection*), each maintaining its own set of finishes and sheets.
 
 ## Finish Code Classifications
-The system categorizes all 137 Shiv Laminate SKUs across 11 standard architectural finishes:
-- **SMT**: Super Matt / Suede Matt (Smooth non-reflective matte finish) - 43 Design Codes
-- **HG**: High Gloss (Reflective mirror-like gloss surface) - 24 Design Codes
-- **SF**: Suede Finish (Standard textured suede surface) - 18 Design Codes
-- **MS**: Matt Silk / Matt Suede (Soft-touch silky matte) - 8 Design Codes
-- **BO**: Bark Oak (Woodgrain texture finish) - 7 Design Codes
-- **FS**: Feather Silk / Fabric Soft (Fabric textured finish) - 7 Design Codes
-- **CP**: Copper / Compact Plain (Metallic/plain architectural finish) - 7 Design Codes
-- **BR**: Brushed Finish (Directional brushed texture) - 7 Design Codes
-- **GW**: Gloss Wave / Grain Wood (Waved gloss texture) - 3 Design Codes
-- **STN**: Stone Finish (Textured stone/mineral feel) - 6 Design Codes
-- **HGS**: High Gloss Sparkle / Solid (Premium sparkle gloss) - 7 Design Codes (1991-1997)
+The system supports both standard and dynamic finish classifications:
+- **MS**: Matt Silk / Matt Suede (Soft-touch silky matte)
+- **HT**: Heavy Texture / High Texture (Deep tactile architectural texture)
+- **SMT**: Super Matt / Suede Matt (Smooth non-reflective matte finish)
+- **HG**: High Gloss (Reflective mirror-like gloss surface)
+- **SF**: Suede Finish (Standard textured suede surface)
+- **BO**: Bark Oak (Woodgrain texture finish)
+- **FS**: Feather Silk / Fabric Soft (Fabric textured finish)
+- **CP**: Copper / Compact Plain (Metallic/plain architectural finish)
+- **BR**: Brushed Finish (Directional brushed texture)
+- **GW**: Gloss Wave / Grain Wood (Waved gloss texture)
+- **STN**: Stone Finish (Textured stone/mineral feel)
+- **HGS**: High Gloss Sparkle / Solid (Premium sparkle gloss)
+- **Custom Finishes**: User-defined finish codes (e.g. `MATT`, `GLOSS`, `WOOD`).
 
 ## SKU Format
 Standard format: `{FINISH}-{CODE}`
 Examples:
+- `MS-101`
+- `HT-101`
 - `SMT-1901`
 - `HG-1908`
-- `HGS-1991`
+
+## UI Architecture (MCP Stitch Design System)
+- **Theme**: High-contrast, clean Light Theme with crisp card borders, light slate background (`#f8fafc` / `bg-slate-50`), and high-legibility typography.
+- **Access Model**: Single-owner frictionless operations (no blocking PIN code).
+- **Navigation**: Segmented tabs for Stock, Analytics, and Audit Ledger.
+- **Folder Navigation**: Horizontal scrolling folder selector with active pill styling and item counter badges.
 
 ## Key Capabilities
-1. **Catalog Resolution**: Quick search and cross-finish lookup by 4-digit design number (e.g. searching "1903" returns all 10 finishes available in shade 1903).
-2. **Stock In (Inward)**: Validates batch additions, notes supplier/invoice reference, increments stock level.
-3. **Stock Out (Outward)**: Validates available stock to prevent negative inventory, logs customer/job reference, decrements stock level.
-4. **Audit Ledger**: Tracks every stock movement with timestamp, delta, previous count, and reason.
-5. **Analytics Calculation**: Calculates turnover rate, finish-wise distribution, reorder alerts, and daily velocity.
+1. **Multi-Folder Management**: Create and switch between catalog folders with custom finish configurations.
+2. **Sheet Cataloging**: Add new design codes with automated SKU generation, initial stock, and minimum thresholds.
+3. **Stock In (Inward)**: Instant single-tap +1 stepper or batch inward with supplier/challan reference.
+4. **Stock Out (Outward)**: Instant single-tap -1 stepper or batch dispatch with inventory floor validation.
+5. **Audit Ledger**: Comprehensive immutable audit history of all transactions.
+6. **Analytics**: Folder breakdown, finish distribution, reorder watchlists, and velocity tracking.

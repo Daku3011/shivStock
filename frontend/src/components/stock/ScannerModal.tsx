@@ -70,56 +70,56 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({ onClose, onItemFound
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-fadeIn">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-xl p-6 relative">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors z-10"
+          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex items-center space-x-2.5 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-200 text-sky-600 flex items-center justify-center">
             <Camera className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Scan Sheet Barcode / QR</h3>
-            <p className="text-[11px] text-slate-400">Aim camera at sheet label</p>
+            <h3 className="text-base font-bold text-slate-900">Scan Sheet Barcode / QR</h3>
+            <p className="text-[11px] text-slate-500">Aim camera at sheet label</p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-3 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2">
+          <div className="mb-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Video stream container */}
-        <div className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 mb-4">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 mb-4">
           <div id="reader-viewport" className="w-full"></div>
         </div>
 
         {/* Manual lookup fallback */}
-        <form onSubmit={handleManualSubmit} className="pt-2 border-t border-slate-800">
-          <label className="text-[11px] font-semibold text-slate-400 block mb-1.5">
+        <form onSubmit={handleManualSubmit} className="pt-2 border-t border-slate-100">
+          <label className="text-[11px] font-semibold text-slate-600 block mb-1.5">
             Or type SKU / Code manually:
           </label>
           <div className="flex items-center space-x-2">
             <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 type="text"
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
                 placeholder="e.g. SMT-1901 or 1903"
-                className="w-full h-10 pl-9 pr-3 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:border-sky-500 outline-none uppercase"
+                className="w-full h-10 pl-9 pr-3 rounded-xl bg-slate-50 border border-slate-300 text-sm text-slate-900 focus:border-sky-500 focus:bg-white outline-none uppercase"
               />
             </div>
             <button
               type="submit"
-              className="h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-colors"
+              className="h-10 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors shadow-sm"
             >
               Lookup
             </button>

@@ -26,13 +26,13 @@
       "name": "Shiv Pastel 1901 (HG)",
       "category": "Pastel Colour",
       "brand": "SHIV LAMINATE",
-      "quantity": 10,
+      "quantity": 19,
       "min_threshold": 5,
       "unit_price": 850,
       "location": "Rack HG-01",
       "notes": "",
       "created_at": "2026-09-24T04:50:30.671Z",
-      "updated_at": "2026-09-24T04:50:30.671Z"
+      "updated_at": "2026-09-24T13:29:08.057Z"
     },
     {
       "id": "f4ae47fa-6f5c-4019-b92f-1e6e3a1b4d19",
@@ -2331,6 +2331,126 @@
     }
   ],
   "transactions": [
+    {
+      "id": "0703b800-f4f1-499c-a3cd-21ba7d6f7a9e",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "OUT",
+      "quantity_change": -1,
+      "previous_quantity": 20,
+      "new_quantity": 19,
+      "reference": "Patoliya",
+      "reason": "Dispatched from warehouse",
+      "created_at": "2026-09-24T13:29:08.057Z"
+    },
+    {
+      "id": "b1af91f6-fc42-4f38-9901-8039d7664a1a",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "OUT",
+      "quantity_change": -1,
+      "previous_quantity": 21,
+      "new_quantity": 20,
+      "reference": "Quick -1 Stepper",
+      "reason": "Single sheet reduction",
+      "created_at": "2026-09-24T13:27:29.330Z"
+    },
+    {
+      "id": "70963082-793f-4ba6-9530-a978e3d0d0de",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "OUT",
+      "quantity_change": -1,
+      "previous_quantity": 22,
+      "new_quantity": 21,
+      "reference": "Quick -1 Stepper",
+      "reason": "Single sheet reduction",
+      "created_at": "2026-09-24T13:27:29.025Z"
+    },
+    {
+      "id": "361f1071-d95a-46f5-bb1a-998efe2ae099",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "OUT",
+      "quantity_change": -1,
+      "previous_quantity": 23,
+      "new_quantity": 22,
+      "reference": "Quick -1 Stepper",
+      "reason": "Single sheet reduction",
+      "created_at": "2026-09-24T13:27:28.694Z"
+    },
+    {
+      "id": "41de814c-57eb-422c-932d-abdcbd448243",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "OUT",
+      "quantity_change": -1,
+      "previous_quantity": 24,
+      "new_quantity": 23,
+      "reference": "Quick -1 Stepper",
+      "reason": "Single sheet reduction",
+      "created_at": "2026-09-24T13:27:28.389Z"
+    },
+    {
+      "id": "87ff0a4c-3968-45f0-8fdf-9e5fd3d655e4",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "IN",
+      "quantity_change": 1,
+      "previous_quantity": 23,
+      "new_quantity": 24,
+      "reference": "Quick +1 Stepper",
+      "reason": "Single sheet addition",
+      "created_at": "2026-09-24T13:27:27.910Z"
+    },
+    {
+      "id": "4446f949-7d4a-40d5-bb4e-e0a047e46faf",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "IN",
+      "quantity_change": 1,
+      "previous_quantity": 22,
+      "new_quantity": 23,
+      "reference": "Quick +1 Stepper",
+      "reason": "Single sheet addition",
+      "created_at": "2026-09-24T13:27:27.744Z"
+    },
+    {
+      "id": "52f8aae0-eb6f-45bd-960c-623c3bbe4bbf",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "IN",
+      "quantity_change": 1,
+      "previous_quantity": 21,
+      "new_quantity": 22,
+      "reference": "Quick +1 Stepper",
+      "reason": "Single sheet addition",
+      "created_at": "2026-09-24T13:27:27.605Z"
+    },
+    {
+      "id": "e9fb3802-615a-448e-b8ad-463199acbd87",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "IN",
+      "quantity_change": 1,
+      "previous_quantity": 20,
+      "new_quantity": 21,
+      "reference": "Quick +1 Stepper",
+      "reason": "Single sheet addition",
+      "created_at": "2026-09-24T13:27:27.049Z"
+    },
+    {
+      "id": "077f31a2-8e6c-478c-af8f-2fe720e0b439",
+      "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
+      "sku": "HG-1901",
+      "type": "IN",
+      "quantity_change": 10,
+      "previous_quantity": 10,
+      "new_quantity": 20,
+      "reference": "Factory Batch Inward",
+      "reason": "Stock replenishment",
+      "created_at": "2026-09-24T13:27:07.743Z"
+    },
     {
       "id": "d256037b-71a1-47b7-8094-3646ac25f007",
       "item_id": "8bfddc57-c34f-4d80-a66d-22a6109bf8d6",

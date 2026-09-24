@@ -38,29 +38,29 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
   const presets = [1, 5, 10, 20, 50];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-xl p-6 relative">
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         <div className="flex items-center space-x-3 mb-5">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
             <ArrowUpRight className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Add Stock (Inward)</h3>
-            <p className="text-xs text-slate-400">
-              {item.name} &bull; <span className="font-mono text-emerald-400">{item.sku}</span>
+            <h3 className="text-lg font-bold text-slate-900">Add Stock (Inward)</h3>
+            <p className="text-xs text-slate-500">
+              {item.name} &bull; <span className="font-mono text-emerald-600">{item.sku}</span>
             </p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+          <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
             {error}
           </div>
         )}
@@ -68,10 +68,10 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <label className="text-xs font-semibold text-slate-300">Quantity to Add (Sheets)</label>
-              <span className="text-xs text-slate-400">
-                Current: <strong className="text-white">{item.quantity}</strong> &rarr; New:{' '}
-                <strong className="text-emerald-400">{item.quantity + (Number(quantity) || 0)}</strong>
+              <label className="text-xs font-semibold text-slate-700">Quantity to Add (Sheets)</label>
+              <span className="text-xs text-slate-500">
+                Current: <strong className="text-slate-900">{item.quantity}</strong> &rarr; New:{' '}
+                <strong className="text-emerald-600">{item.quantity + (Number(quantity) || 0)}</strong>
               </span>
             </div>
 
@@ -80,7 +80,7 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
               min="1"
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 0)}
-              className="w-full h-12 px-4 rounded-xl bg-slate-950 border border-slate-700 text-white text-lg font-bold focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+              className="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-lg font-bold focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
               required
             />
 
@@ -93,8 +93,8 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
                   onClick={() => setQuantity(p)}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
                     quantity === p
-                      ? 'bg-emerald-500 text-white border-emerald-400'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
                   }`}
                 >
                   +{p}
@@ -104,7 +104,7 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+            <label className="text-xs font-semibold text-slate-700 block mb-1.5">
               Supplier / Challan / Batch Reference
             </label>
             <input
@@ -112,18 +112,18 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="e.g. Shiv Factory Delivery #410"
-              className="w-full h-11 px-4 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+              className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-300 text-sm text-slate-900 focus:border-emerald-500 focus:bg-white outline-none"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">Reason / Note</label>
+            <label className="text-xs font-semibold text-slate-700 block mb-1.5">Reason / Note</label>
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Regular monthly restock"
-              className="w-full h-11 px-4 rounded-xl bg-slate-950 border border-slate-700 text-sm text-white focus:border-emerald-500 outline-none"
+              className="w-full h-11 px-4 rounded-xl bg-slate-50 border border-slate-300 text-sm text-slate-900 focus:border-emerald-500 focus:bg-white outline-none"
             />
           </div>
 
@@ -131,14 +131,14 @@ export const StockInModal: React.FC<StockInModalProps> = ({ item, onClose, onSub
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-11 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-semibold transition-colors"
+              className="flex-1 h-11 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-sm font-semibold transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-lg shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
+              className="flex-1 h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-2 transition-all disabled:opacity-50"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{loading ? 'Adding...' : 'Confirm Inward'}</span>

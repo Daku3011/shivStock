@@ -13,6 +13,7 @@ build/
 .env
 .env.local
 .env.production
+.agent/skill/*
 
 # Logs
 npm-debug.log*
@@ -22,3 +23,4 @@ yarn-error.log*
 # OS Files
 .DS_Store
 Thumbs.db
+secret.txt
