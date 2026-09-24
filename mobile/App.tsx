@@ -85,6 +85,12 @@ export default function App() {
   const [selectedFolderFinishes, setSelectedFolderFinishes] = useState<string[]>(['MS', 'HT']);
   const [customFinishInput, setCustomFinishInput] = useState<string>('');
 
+  // Edit Folder Modal state
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [editFolderName, setEditFolderName] = useState<string>('');
+  const [editFolderFinishes, setEditFolderFinishes] = useState<string[]>([]);
+  const [editCustomFinishInput, setEditCustomFinishInput] = useState<string>('');
+
   // Add Sheet Modal state
   const [showAddSheetModal, setShowAddSheetModal] = useState<boolean>(false);
   const [newSheetFolder, setNewSheetFolder] = useState<string>('Pastel Colour');
@@ -303,19 +309,48 @@ export default function App() {
     return folders.find((f) => f.id === selectedFolderId) || null;
   }, [folders, selectedFolderId]);
 
+  // Current folder items (case-insensitive & trimmed matching)
+  const currentFolderItems = useMemo(() => {
+    if (!activeFolder) return items;
+    const targetCat = activeFolder.name.trim().toLowerCase();
+    return items.filter((i) => (i.category || 'Pastel Colour').trim().toLowerCase() === targetCat);
+  }, [items, activeFolder]);
+
   // Finishes available for current view
   const availableFinishes = useMemo(() => {
     if (activeFolder) {
-      // Finishes declared in the active folder or present in items
       const set = new Set<string>(activeFolder.finishes);
-      items.filter((i) => i.category === activeFolder.name).forEach((i) => set.add(i.finish));
+      currentFolderItems.forEach((i) => set.add(i.finish));
       return ['ALL', ...Array.from(set)];
     }
-    // All folders: aggregate all finishes from items
     const set = new Set<string>();
     items.forEach((i) => set.add(i.finish));
     return ['ALL', ...Array.from(set)];
-  }, [activeFolder, items]);
+  }, [activeFolder, items, currentFolderItems]);
+
+  // Dynamic SKU counts per finish for active folder
+  const skuCountsByFinish = useMemo(() => {
+    const map: Record<string, number> = {};
+    let total = 0;
+    currentFolderItems.forEach((i) => {
+      map[i.finish] = (map[i.finish] || 0) + 1;
+      total += 1;
+    });
+    map['ALL'] = total;
+    return map;
+  }, [currentFolderItems]);
+
+  // Dynamic sheet counts per finish for active folder
+  const stockCountsByFinish = useMemo(() => {
+    const map: Record<string, number> = {};
+    let total = 0;
+    currentFolderItems.forEach((i) => {
+      map[i.finish] = (map[i.finish] || 0) + i.quantity;
+      total += i.quantity;
+    });
+    map['ALL'] = total;
+    return map;
+  }, [currentFolderItems]);
 
   // Reset selected finish if not available
   useEffect(() => {
@@ -326,16 +361,12 @@ export default function App() {
 
   // Filter items based on active folder, finish, and search query
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      // 1. Folder filter
-      if (activeFolder && item.category !== activeFolder.name) {
+    return currentFolderItems.filter((item) => {
+      // 1. Finish filter
+      if (selectedFinish !== 'ALL' && item.finish.toUpperCase() !== selectedFinish.toUpperCase()) {
         return false;
       }
-      // 2. Finish filter
-      if (selectedFinish !== 'ALL' && item.finish !== selectedFinish) {
-        return false;
-      }
-      // 3. Search query
+      // 2. Search query
       if (search.trim()) {
         const q = search.toLowerCase().trim();
         return (
@@ -348,7 +379,7 @@ export default function App() {
       }
       return true;
     });
-  }, [items, activeFolder, selectedFinish, search]);
+  }, [currentFolderItems, selectedFinish, search]);
 
   // Analytics counts
   const totalSheets = useMemo(() => items.reduce((a, b) => a + b.quantity, 0), [items]);
@@ -364,7 +395,9 @@ export default function App() {
   // Folder-wise statistics
   const folderStats = useMemo(() => {
     return folders.map((f) => {
-      const folderItems = items.filter((it) => it.category === f.name);
+      const folderItems = items.filter(
+        (it) => (it.category || 'Pastel Colour').trim().toLowerCase() === f.name.trim().toLowerCase()
+      );
       const sheets = folderItems.reduce((acc, it) => acc + it.quantity, 0);
       const low = folderItems.filter((it) => it.quantity <= it.min_threshold).length;
       return {
@@ -375,6 +408,120 @@ export default function App() {
       };
     });
   }, [folders, items]);
+
+  // Handler: Open Edit Folder Modal
+  const handleOpenEditFolder = (f: Folder) => {
+    setEditingFolder(f);
+    setEditFolderName(f.name);
+    setEditFolderFinishes([...f.finishes]);
+    setEditCustomFinishInput('');
+  };
+
+  // Handler: Save Edit Folder
+  const handleSaveEditFolder = async () => {
+    if (!editingFolder) return;
+    const trimmed = editFolderName.trim();
+    if (!trimmed) {
+      Alert.alert('Folder Name Required', 'Please enter a folder name.');
+      return;
+    }
+
+    const exists = folders.some(
+      (f) => f.id !== editingFolder.id && f.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      Alert.alert('Folder Exists', 'Another folder with this name already exists.');
+      return;
+    }
+
+    const oldName = editingFolder.name;
+    const updatedFolders = folders.map((f) =>
+      f.id === editingFolder.id
+        ? {
+            ...f,
+            name: trimmed,
+            finishes: editFolderFinishes.length > 0 ? editFolderFinishes : ['MS', 'HT'],
+          }
+        : f
+    );
+
+    await saveFolders(updatedFolders);
+
+    if (oldName.toLowerCase() !== trimmed.toLowerCase()) {
+      const updatedItems = items.map((it) =>
+        (it.category || 'Pastel Colour').toLowerCase() === oldName.toLowerCase()
+          ? { ...it, category: trimmed }
+          : it
+      );
+      await saveItems(updatedItems);
+    }
+
+    setEditingFolder(null);
+    Alert.alert('Folder Updated', `Folder "${trimmed}" has been updated.`);
+  };
+
+  // Handler: Toggle finish selection for editing folder
+  const toggleEditFolderFinish = (finish: string) => {
+    if (editFolderFinishes.includes(finish)) {
+      setEditFolderFinishes(editFolderFinishes.filter((f) => f !== finish));
+    } else {
+      setEditFolderFinishes([...editFolderFinishes, finish]);
+    }
+  };
+
+  // Handler: Add custom finish when editing folder
+  const handleAddEditCustomFinish = () => {
+    const trimmed = editCustomFinishInput.trim().toUpperCase();
+    if (trimmed && !editFolderFinishes.includes(trimmed)) {
+      setEditFolderFinishes([...editFolderFinishes, trimmed]);
+      setEditCustomFinishInput('');
+    }
+  };
+
+  // Handler: Delete Folder
+  const handleDeleteFolder = (folderId: string) => {
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+
+    if (folders.length <= 1) {
+      Alert.alert('Cannot Delete', 'You must have at least one folder in your catalog.');
+      return;
+    }
+
+    const count = items.filter(
+      (i) => (i.category || 'Pastel Colour').toLowerCase() === folder.name.toLowerCase()
+    ).length;
+
+    Alert.alert(
+      'Delete Folder',
+      count > 0
+        ? `Are you sure you want to delete "${folder.name}"? ${count} item(s) will be moved to the default folder.`
+        : `Are you sure you want to delete "${folder.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const fallbackFolder = folders.find((f) => f.id !== folderId) || DEFAULT_FOLDERS[0];
+            const updatedFolders = folders.filter((f) => f.id !== folderId);
+            await saveFolders(updatedFolders);
+
+            const updatedItems = items.map((it) =>
+              (it.category || 'Pastel Colour').toLowerCase() === folder.name.toLowerCase()
+                ? { ...it, category: fallbackFolder.name }
+                : it
+            );
+            await saveItems(updatedItems);
+
+            if (selectedFolderId === folderId) {
+              setSelectedFolderId('all');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Handler: Create New Folder
   const handleCreateFolder = async () => {
@@ -645,22 +792,49 @@ export default function App() {
 
               {folders.map((f) => {
                 const isSelected = selectedFolderId === f.id;
-                const count = items.filter((i) => i.category === f.name).length;
+                const count = items.filter(
+                  (i) => (i.category || 'Pastel Colour').trim().toLowerCase() === f.name.trim().toLowerCase()
+                ).length;
                 return (
-                  <TouchableOpacity
+                  <View
                     key={f.id}
                     style={[styles.folderPill, isSelected && styles.folderPillActive]}
-                    onPress={() => setSelectedFolderId(f.id)}
                   >
-                    <Text style={[styles.folderPillText, isSelected && styles.folderPillTextActive]}>
-                      📁 {f.name}
-                    </Text>
-                    <View style={[styles.folderCountBadge, isSelected && styles.folderCountBadgeActive]}>
-                      <Text style={[styles.folderCountText, isSelected && styles.folderCountTextActive]}>
-                        {count}
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center' }}
+                      onPress={() => setSelectedFolderId(f.id)}
+                    >
+                      <Text style={[styles.folderPillText, isSelected && styles.folderPillTextActive]}>
+                        📁 {f.name}
                       </Text>
-                    </View>
-                  </TouchableOpacity>
+                      <View style={[styles.folderCountBadge, isSelected && styles.folderCountBadgeActive]}>
+                        <Text style={[styles.folderCountText, isSelected && styles.folderCountTextActive]}>
+                          {count}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {isSelected && (
+                      <View style={styles.folderActionGroup}>
+                        <TouchableOpacity
+                          style={styles.folderActionBtn}
+                          onPress={() => handleOpenEditFolder(f)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Text style={styles.folderActionText}>✏️</Text>
+                        </TouchableOpacity>
+                        {folders.length > 1 && (
+                          <TouchableOpacity
+                            style={styles.folderActionBtn}
+                            onPress={() => handleDeleteFolder(f.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Text style={styles.folderActionText}>🗑️</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 );
               })}
 
@@ -698,6 +872,7 @@ export default function App() {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 12 }}>
               {availableFinishes.map((f) => {
                 const isSelected = selectedFinish === f;
+                const skuCount = skuCountsByFinish[f] ?? 0;
                 return (
                   <TouchableOpacity
                     key={f}
@@ -705,7 +880,7 @@ export default function App() {
                     onPress={() => setSelectedFinish(f)}
                   >
                     <Text style={[styles.finishPillText, isSelected && styles.finishPillTextActive]}>
-                      {f}
+                      {f} ({skuCount})
                     </Text>
                   </TouchableOpacity>
                 );
@@ -1060,6 +1235,77 @@ export default function App() {
         </Modal>
       )}
 
+      {/* Edit Folder Modal */}
+      {editingFolder !== null && (
+        <Modal transparent animationType="fade" visible={true}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Edit Folder</Text>
+              <Text style={styles.modalSub}>
+                Update folder name and finish catalog options.
+              </Text>
+
+              <Text style={styles.inputLabel}>Folder Name</Text>
+              <TextInput
+                style={styles.modalInputText}
+                value={editFolderName}
+                onChangeText={setEditFolderName}
+                placeholder="e.g. Heavy Texture (HT)"
+                placeholderTextColor="#94a3b8"
+              />
+
+              <Text style={styles.inputLabel}>Select Finishes for this Folder</Text>
+              <View style={styles.finishSelectGrid}>
+                {COMMON_FINISHES.map((f) => {
+                  const isChecked = editFolderFinishes.includes(f);
+                  return (
+                    <TouchableOpacity
+                      key={f}
+                      style={[styles.finishSelectChip, isChecked && styles.finishSelectChipActive]}
+                      onPress={() => toggleEditFolderFinish(f)}
+                    >
+                      <Text style={[styles.finishSelectChipText, isChecked && styles.finishSelectChipTextActive]}>
+                        {f}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 8 }}>
+                <TextInput
+                  style={[styles.modalInputText, { flex: 1, marginBottom: 0 }]}
+                  value={editCustomFinishInput}
+                  onChangeText={setEditCustomFinishInput}
+                  placeholder="Or type custom finish (e.g. MATT)"
+                  placeholderTextColor="#94a3b8"
+                  autoCapitalize="characters"
+                />
+                <TouchableOpacity style={styles.addCustomFinishBtn} onPress={handleAddEditCustomFinish}>
+                  <Text style={styles.addCustomFinishBtnText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.modalActions, { marginTop: 20 }]}>
+                <TouchableOpacity
+                  style={styles.modalCancel}
+                  onPress={() => setEditingFolder(null)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.modalConfirm} onPress={handleSaveEditFolder}>
+                  <Text style={styles.modalConfirmText}>Save Changes</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
+
       {/* Add New Sheet Modal */}
       {showAddSheetModal && (
         <Modal transparent animationType="fade" visible={true}>
@@ -1310,6 +1556,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#0284c7',
+  },
+  folderActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+    gap: 4,
+  },
+  folderActionBtn: {
+    padding: 3,
+    backgroundColor: '#ffffff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  folderActionText: {
+    fontSize: 10,
   },
   searchContainer: {
     paddingHorizontal: 12,

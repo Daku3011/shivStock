@@ -19,6 +19,7 @@ export const FINISH_METADATA: Record<string, { name: string; color: string; coun
 interface FinishTabsProps {
   selectedFinish: string;
   onSelectFinish: (finish: string) => void;
+  skuCountsByFinish?: Record<string, number>;
   stockCountsByFinish?: Record<string, number>;
   availableFinishes?: string[];
 }
@@ -26,6 +27,7 @@ interface FinishTabsProps {
 export const FinishTabs: React.FC<FinishTabsProps> = ({
   selectedFinish,
   onSelectFinish,
+  skuCountsByFinish,
   stockCountsByFinish,
   availableFinishes,
 }) => {
@@ -38,8 +40,10 @@ export const FinishTabs: React.FC<FinishTabsProps> = ({
       <div className="flex items-center space-x-2 min-w-max">
         {finishesToDisplay.map((key) => {
           const isSelected = selectedFinish.toUpperCase() === key.toUpperCase();
+          const skuCount = skuCountsByFinish !== undefined
+            ? (skuCountsByFinish[key] ?? 0)
+            : (FINISH_METADATA[key]?.count ?? 0);
           const totalSheets = stockCountsByFinish?.[key];
-          const meta = FINISH_METADATA[key];
 
           return (
             <button
@@ -52,15 +56,13 @@ export const FinishTabs: React.FC<FinishTabsProps> = ({
               }`}
             >
               <span className="font-bold tracking-wide">{key}</span>
-              {meta && meta.count > 0 && (
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                    isSelected ? 'bg-sky-700 text-white' : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {meta.count} SKUs
-                </span>
-              )}
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                  isSelected ? 'bg-sky-700 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {skuCount} {skuCount === 1 ? 'SKU' : 'SKUs'}
+              </span>
               {totalSheets !== undefined && (
                 <span className={`text-[10px] ${isSelected ? 'text-sky-100' : 'text-slate-500'} font-normal`}>
                   ({totalSheets} sh)

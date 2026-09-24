@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Search, SlidersHorizontal, RefreshCw, Sparkles, Check, AlertCircle, FolderPlus, Plus, Folder as FolderIcon } from 'lucide-react';
+import { Search, SlidersHorizontal, RefreshCw, Sparkles, Check, AlertCircle, FolderPlus, Plus, Folder as FolderIcon, Pencil, Trash2 } from 'lucide-react';
 import { LaminateItem, DashboardAnalytics, StockTransaction } from './types';
 import { api } from './services/api';
 import { Header } from './components/layout/Header';
@@ -57,6 +57,12 @@ export function App() {
   const [newFolderName, setNewFolderName] = useState<string>('');
   const [selectedFolderFinishes, setSelectedFolderFinishes] = useState<string[]>(['MS', 'HT']);
   const [customFinishInput, setCustomFinishInput] = useState<string>('');
+
+  // Edit Folder State
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [editFolderName, setEditFolderName] = useState<string>('');
+  const [editFolderFinishes, setEditFolderFinishes] = useState<string[]>([]);
+  const [editCustomFinishInput, setEditCustomFinishInput] = useState<string>('');
 
   const [showAddSheetModal, setShowAddSheetModal] = useState<boolean>(false);
   const [newSheetFolder, setNewSheetFolder] = useState<string>('Pastel Colour');
@@ -133,17 +139,24 @@ export function App() {
     return folders.find((f) => f.id === selectedFolderId) || null;
   }, [folders, selectedFolderId]);
 
+  // Items scoped to the active folder (case-insensitive & trimmed)
+  const currentFolderItems = useMemo(() => {
+    if (!activeFolder) return items;
+    const targetCat = activeFolder.name.trim().toLowerCase();
+    return items.filter((i) => (i.category || 'Pastel Colour').trim().toLowerCase() === targetCat);
+  }, [items, activeFolder]);
+
   // Dynamic available finishes for the active view
   const availableFinishes = useMemo(() => {
     if (activeFolder) {
       const set = new Set<string>(activeFolder.finishes);
-      items.filter((i) => i.category === activeFolder.name).forEach((i) => set.add(i.finish));
+      currentFolderItems.forEach((i) => set.add(i.finish));
       return ['ALL', ...Array.from(set)];
     }
     const set = new Set<string>();
     items.forEach((item) => set.add(item.finish));
     return ['ALL', ...Array.from(set)];
-  }, [activeFolder, items]);
+  }, [activeFolder, items, currentFolderItems]);
 
   useEffect(() => {
     if (selectedFinish !== 'ALL' && !availableFinishes.includes(selectedFinish)) {
@@ -151,31 +164,47 @@ export function App() {
     }
   }, [availableFinishes, selectedFinish]);
 
-  // Stock count per finish map
+  // Dynamic SKU counts per finish for the active folder/view
+  const skuCountsByFinish = useMemo(() => {
+    const map: Record<string, number> = {};
+    let total = 0;
+    currentFolderItems.forEach((item) => {
+      map[item.finish] = (map[item.finish] || 0) + 1;
+      total += 1;
+    });
+    map['ALL'] = total;
+    return map;
+  }, [currentFolderItems]);
+
+  // Dynamic Stock count (total sheets) per finish for the active folder/view
   const stockCountsByFinish = useMemo(() => {
     const map: Record<string, number> = {};
     let totalAll = 0;
-    items.forEach((item) => {
-      if (activeFolder && item.category !== activeFolder.name) return;
+    currentFolderItems.forEach((item) => {
       map[item.finish] = (map[item.finish] || 0) + item.quantity;
       totalAll += item.quantity;
     });
     map['ALL'] = totalAll;
     return map;
-  }, [items, activeFolder]);
+  }, [currentFolderItems]);
 
-  // Filtered Items
+  // Folder-scoped low stock & out of stock counts
+  const lowStockInFolder = useMemo(() => {
+    return currentFolderItems.filter((i) => i.quantity <= i.min_threshold && i.quantity > 0).length;
+  }, [currentFolderItems]);
+
+  const outOfStockInFolder = useMemo(() => {
+    return currentFolderItems.filter((i) => i.quantity === 0).length;
+  }, [currentFolderItems]);
+
+  // Filtered Items for display
   const filteredItems = useMemo(() => {
-    return items.filter((item) => {
-      // 1. Folder filter
-      if (activeFolder && item.category !== activeFolder.name) {
+    return currentFolderItems.filter((item) => {
+      // 1. Finish filter
+      if (selectedFinish !== 'ALL' && item.finish.toUpperCase() !== selectedFinish.toUpperCase()) {
         return false;
       }
-      // 2. Finish filter
-      if (selectedFinish !== 'ALL' && item.finish !== selectedFinish) {
-        return false;
-      }
-      // 3. Status filter
+      // 2. Status filter
       if (statusFilter === 'low_stock' && (item.quantity > item.min_threshold || item.quantity === 0)) {
         return false;
       }
@@ -185,7 +214,7 @@ export function App() {
       if (statusFilter === 'in_stock' && item.quantity <= item.min_threshold) {
         return false;
       }
-      // 4. Search query (matches code, sku, name, finish, category)
+      // 3. Search query (matches code, sku, name, finish, category)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesCode = item.code.toLowerCase().includes(q);
@@ -199,7 +228,7 @@ export function App() {
       }
       return true;
     });
-  }, [items, activeFolder, selectedFinish, statusFilter, searchQuery]);
+  }, [currentFolderItems, selectedFinish, statusFilter, searchQuery]);
 
   // Quick Increment / Decrement without PIN
   const handleQuickAdjust = async (item: LaminateItem, delta: number) => {
@@ -280,6 +309,104 @@ export function App() {
     setNewFolderName('');
     setSelectedFolderFinishes(['MS', 'HT']);
     showToast(`Created folder "${name}"!`);
+  };
+
+  // Open Edit Folder Modal
+  const handleOpenEditFolder = (f: Folder, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingFolder(f);
+    setEditFolderName(f.name);
+    setEditFolderFinishes([...f.finishes]);
+    setEditCustomFinishInput('');
+  };
+
+  // Save Edit Folder Handler
+  const handleSaveEditFolder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFolder) return;
+    const trimmed = editFolderName.trim();
+    if (!trimmed) {
+      showToast('Folder name cannot be empty', 'error');
+      return;
+    }
+
+    const nameExists = folders.some(
+      (f) => f.id !== editingFolder.id && f.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (nameExists) {
+      showToast('Another folder with this name already exists', 'error');
+      return;
+    }
+
+    const oldName = editingFolder.name;
+    const updatedFolders = folders.map((f) =>
+      f.id === editingFolder.id
+        ? {
+            ...f,
+            name: trimmed,
+            finishes: editFolderFinishes.length > 0 ? editFolderFinishes : ['MS', 'HT'],
+          }
+        : f
+    );
+
+    setFolders(updatedFolders);
+    localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
+
+    // Update categories of items belonging to this folder if name changed
+    if (oldName.toLowerCase() !== trimmed.toLowerCase()) {
+      const updatedItems = items.map((it) =>
+        (it.category || 'Pastel Colour').toLowerCase() === oldName.toLowerCase()
+          ? { ...it, category: trimmed }
+          : it
+      );
+      setItems(updatedItems);
+      localStorage.setItem('shiv_custom_stock', JSON.stringify(updatedItems));
+    }
+
+    setEditingFolder(null);
+    showToast(`Folder "${trimmed}" updated!`);
+  };
+
+  // Delete Folder Handler
+  const handleDeleteFolder = (folderId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const folder = folders.find((f) => f.id === folderId);
+    if (!folder) return;
+
+    if (folders.length <= 1) {
+      showToast('Cannot delete the only folder', 'error');
+      return;
+    }
+
+    const count = items.filter(
+      (i) => (i.category || 'Pastel Colour').toLowerCase() === folder.name.toLowerCase()
+    ).length;
+
+    const confirmMsg = count > 0
+      ? `Are you sure you want to delete folder "${folder.name}"? ${count} item(s) in this folder will be moved to "Pastel Colour".`
+      : `Are you sure you want to delete folder "${folder.name}"?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    const fallbackFolder = folders.find((f) => f.id !== folderId) || DEFAULT_FOLDERS[0];
+    const updatedFolders = folders.filter((f) => f.id !== folderId);
+    setFolders(updatedFolders);
+    localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
+
+    // Reassign items to fallback folder
+    const updatedItems = items.map((it) =>
+      (it.category || 'Pastel Colour').toLowerCase() === folder.name.toLowerCase()
+        ? { ...it, category: fallbackFolder.name }
+        : it
+    );
+    setItems(updatedItems);
+    localStorage.setItem('shiv_custom_stock', JSON.stringify(updatedItems));
+
+    if (selectedFolderId === folderId) {
+      setSelectedFolderId('all');
+    }
+
+    showToast(`Deleted folder "${folder.name}".`);
   };
 
   // Create Sheet Handler
@@ -390,23 +517,62 @@ export function App() {
 
                 {folders.map((f) => {
                   const isSelected = selectedFolderId === f.id;
-                  const count = items.filter((i) => i.category === f.name).length;
+                  const count = items.filter(
+                    (i) => (i.category || 'Pastel Colour').trim().toLowerCase() === f.name.trim().toLowerCase()
+                  ).length;
                   return (
-                    <button
+                    <div
                       key={f.id}
-                      onClick={() => setSelectedFolderId(f.id)}
                       className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         isSelected
                           ? 'bg-sky-600 text-white shadow-sm'
                           : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                       }`}
                     >
-                      <FolderIcon className="w-3.5 h-3.5" />
-                      <span>{f.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isSelected ? 'bg-sky-800 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                        {count}
-                      </span>
-                    </button>
+                      <button
+                        onClick={() => setSelectedFolderId(f.id)}
+                        className="flex items-center space-x-1.5 focus:outline-none"
+                      >
+                        <FolderIcon className="w-3.5 h-3.5" />
+                        <span>{f.name}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                            isSelected ? 'bg-sky-800 text-white' : 'bg-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+
+                      <div className="flex items-center space-x-0.5 pl-1 border-l border-slate-300/40">
+                        <button
+                          type="button"
+                          onClick={(e) => handleOpenEditFolder(f, e)}
+                          title={`Edit ${f.name} Folder`}
+                          className={`p-1 rounded-md transition-colors ${
+                            isSelected
+                              ? 'text-sky-200 hover:text-white hover:bg-sky-700'
+                              : 'text-slate-400 hover:text-slate-700 hover:bg-slate-300'
+                          }`}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        {folders.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteFolder(f.id, e)}
+                            title={`Delete ${f.name} Folder`}
+                            className={`p-1 rounded-md transition-colors ${
+                              isSelected
+                                ? 'text-rose-200 hover:text-white hover:bg-rose-600'
+                                : 'text-slate-400 hover:text-rose-600 hover:bg-slate-300'
+                            }`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
 
@@ -470,7 +636,7 @@ export function App() {
                       statusFilter === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    All ({items.length})
+                    All ({currentFolderItems.length})
                   </button>
                   <button
                     onClick={() => setStatusFilter('low_stock')}
@@ -478,7 +644,7 @@ export function App() {
                       statusFilter === 'low_stock' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Low ({analytics?.lowStockCount || 0})
+                    Low ({lowStockInFolder})
                   </button>
                   <button
                     onClick={() => setStatusFilter('out_of_stock')}
@@ -486,7 +652,7 @@ export function App() {
                       statusFilter === 'out_of_stock' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Out ({analytics?.outOfStockCount || 0})
+                    Out ({outOfStockInFolder})
                   </button>
                 </div>
 
@@ -505,6 +671,7 @@ export function App() {
             <FinishTabs
               selectedFinish={selectedFinish}
               onSelectFinish={setSelectedFinish}
+              skuCountsByFinish={skuCountsByFinish}
               stockCountsByFinish={stockCountsByFinish}
               availableFinishes={availableFinishes}
             />
@@ -713,6 +880,102 @@ export function App() {
                   className="flex-1 h-10 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20"
                 >
                   Create Folder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Folder Modal */}
+      {editingFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-xl p-6 relative">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Edit Folder</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              Modify folder name and finish catalog
+            </p>
+
+            <form onSubmit={handleSaveEditFolder} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">Folder Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editFolderName}
+                  onChange={(e) => setEditFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-50 border border-slate-300 text-sm text-slate-900 focus:border-sky-500 focus:bg-white outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Finishes in this Folder
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {COMMON_FINISHES.map((f) => {
+                    const isChecked = editFolderFinishes.includes(f);
+                    return (
+                      <button
+                        type="button"
+                        key={f}
+                        onClick={() => {
+                          if (isChecked) {
+                            setEditFolderFinishes(editFolderFinishes.filter((x) => x !== f));
+                          } else {
+                            setEditFolderFinishes([...editFolderFinishes, f]);
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                          isChecked
+                            ? 'bg-sky-600 text-white border-sky-600'
+                            : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={editCustomFinishInput}
+                    onChange={(e) => setEditCustomFinishInput(e.target.value)}
+                    placeholder="Custom finish (e.g. MATT)"
+                    className="flex-1 h-9 px-3 rounded-xl bg-slate-50 border border-slate-300 text-xs uppercase text-slate-900 focus:border-sky-500 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = editCustomFinishInput.trim().toUpperCase();
+                      if (trimmed && !editFolderFinishes.includes(trimmed)) {
+                        setEditFolderFinishes([...editFolderFinishes, trimmed]);
+                        setEditCustomFinishInput('');
+                      }
+                    }}
+                    className="h-9 px-3 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 text-xs font-bold"
+                  >
+                    + Add
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingFolder(null)}
+                  className="flex-1 h-10 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 h-10 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold shadow-md shadow-sky-600/20"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>
