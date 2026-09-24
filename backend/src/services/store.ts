@@ -168,7 +168,11 @@ class StockStore {
         // fallback
       }
     }
-    return this.items.get(id) || null;
+    const local = this.items.get(id);
+    if (local) return local;
+
+    // Fallback to SKU lookup in case caller passed SKU
+    return this.getItemBySku(id);
   }
 
   public async getItemBySku(sku: string): Promise<LaminateItem | null> {
@@ -181,6 +185,91 @@ class StockStore {
       }
     }
     return Array.from(this.items.values()).find(i => i.sku.toUpperCase() === sku.toUpperCase()) || null;
+  }
+
+  public async createItem(data: {
+    sku?: string;
+    code: string;
+    finish: string;
+    finish_name?: string;
+    name?: string;
+    category?: string;
+    brand?: string;
+    quantity?: number;
+    min_threshold?: number;
+    unit_price?: number;
+    location?: string;
+    notes?: string;
+  }): Promise<LaminateItem> {
+    const finish = data.finish.trim().toUpperCase();
+    const code = data.code.trim();
+    const sku = (data.sku || `${finish}-${code}`).toUpperCase();
+
+    const existing = await this.getItemBySku(sku);
+    if (existing) {
+      throw new Error(`Item with SKU "${sku}" already exists`);
+    }
+
+    const id = uuidv4();
+    const now = new Date().toISOString();
+    const qty = Math.max(0, data.quantity ?? 0);
+    const category = data.category || 'Pastel Colour';
+    const name = data.name?.trim() || `Shiv ${category} ${code} (${finish})`;
+
+    const newItem: LaminateItem = {
+      id,
+      sku,
+      code,
+      finish,
+      finish_name: data.finish_name || finish,
+      name,
+      category,
+      brand: data.brand || 'SHIV LAMINATE',
+      quantity: qty,
+      min_threshold: data.min_threshold ?? 5,
+      unit_price: data.unit_price ?? 850,
+      location: data.location || 'Rack Main',
+      notes: data.notes || '',
+      created_at: now,
+      updated_at: now,
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('laminate_items').insert([newItem]);
+      } catch (e) {
+        console.warn('Supabase insert failed, keeping in local memory:', e);
+      }
+    }
+
+    this.items.set(id, newItem);
+
+    if (qty > 0) {
+      const transaction: StockTransaction = {
+        id: uuidv4(),
+        item_id: id,
+        sku: newItem.sku,
+        type: 'IN',
+        quantity_change: qty,
+        previous_quantity: 0,
+        new_quantity: qty,
+        reference: 'Initial Stock Addition',
+        reason: 'New catalog entry created',
+        created_at: now,
+      };
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          await supabase.from('stock_transactions').insert([transaction]);
+        } catch (e) {
+          console.warn('Supabase transaction insert failed:', e);
+        }
+      }
+      this.transactions.unshift(transaction);
+    }
+
+    this.saveSnapshot();
+    return newItem;
   }
 
   public async stockIn(

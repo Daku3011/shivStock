@@ -7,6 +7,7 @@ import {
   stockOut,
   adjustStock,
   getTransactions,
+  createItem,
 } from '../controllers/stockController';
 import { getDashboardAnalytics } from '../controllers/analyticsController';
 import { loginWithPin, verifySession } from '../controllers/authController';
@@ -28,6 +29,7 @@ router.get('/auth/verify', verifySession);
 
 // Stock endpoints
 router.get('/stock', getStock);
+router.post('/stock', createItem);
 router.get('/stock/sku/:sku', getItemBySku);
 router.get('/stock/:id', getItemById);
 router.post('/stock/:id/in', stockIn);

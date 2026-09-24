@@ -118,3 +118,34 @@ export const getTransactions = async (req: Request, res: Response): Promise<void
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const createItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { code, finish, sku, name, category, brand, quantity, min_threshold, unit_price, location, notes } = req.body;
+    if (!code || !finish) {
+      res.status(400).json({ success: false, message: 'Design code and finish are required.' });
+      return;
+    }
+    const item = await stockStore.createItem({
+      code: String(code),
+      finish: String(finish),
+      sku: sku ? String(sku) : undefined,
+      name: name ? String(name) : undefined,
+      category: category ? String(category) : undefined,
+      brand: brand ? String(brand) : undefined,
+      quantity: quantity !== undefined ? parseInt(String(quantity), 10) : undefined,
+      min_threshold: min_threshold !== undefined ? parseInt(String(min_threshold), 10) : undefined,
+      unit_price: unit_price !== undefined ? parseFloat(String(unit_price)) : undefined,
+      location: location ? String(location) : undefined,
+      notes: notes ? String(notes) : undefined,
+    });
+    res.status(201).json({
+      success: true,
+      message: `Successfully created sheet ${item.sku}`,
+      data: item,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+

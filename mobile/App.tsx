@@ -14,9 +14,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import catalogData from './src/catalog.json';
+import { mobileApi } from './src/services/api';
 
 export interface Folder {
   id: string;
@@ -26,6 +29,7 @@ export interface Folder {
 }
 
 export interface Item {
+  id?: string;
   sku: string;
   code: string;
   finish: string;
@@ -42,7 +46,7 @@ export interface Transaction {
   id: string;
   sku: string;
   category?: string;
-  type: 'IN' | 'OUT';
+  type: 'IN' | 'OUT' | 'ADJUSTMENT';
   change: number;
   balance: number;
   time: string;
@@ -90,13 +94,93 @@ export default function App() {
   const [newSheetQty, setNewSheetQty] = useState<string>('12');
   const [newSheetMin, setNewSheetMin] = useState<string>('5');
 
-  // Load from local storage or fallback to catalog
+  // Cloud sync states
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('syncing');
+
+  const syncWithServer = async (fallbackFolders?: Folder[]) => {
+    setIsSyncing(true);
+    setSyncStatus('syncing');
+    try {
+      const serverItems = await mobileApi.fetchStock();
+      if (Array.isArray(serverItems) && serverItems.length > 0) {
+        const formattedItems: Item[] = serverItems.map((s) => ({
+          id: s.id,
+          sku: s.sku,
+          code: s.code,
+          finish: s.finish,
+          finish_name: s.finish_name,
+          name: s.name,
+          category: s.category || 'Pastel Colour',
+          quantity: s.quantity,
+          min_threshold: s.min_threshold,
+          location: s.location,
+          unit_price: s.unit_price,
+        }));
+        setItems(formattedItems);
+        await AsyncStorage.setItem('shiv_mobile_stock', JSON.stringify(formattedItems));
+
+        // Auto-merge categories found in database into folders
+        const baseFolders = fallbackFolders || folders;
+        const knownFolderNames = new Set(baseFolders.map((f) => f.name.toLowerCase()));
+        let updatedFolders = [...baseFolders];
+        let foldersChanged = false;
+
+        formattedItems.forEach((it) => {
+          if (it.category && !knownFolderNames.has(it.category.toLowerCase())) {
+            const folderId = it.category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            updatedFolders.push({
+              id: folderId,
+              name: it.category,
+              finishes: [it.finish],
+              createdAt: new Date().toISOString(),
+            });
+            knownFolderNames.add(it.category.toLowerCase());
+            foldersChanged = true;
+          }
+        });
+
+        if (foldersChanged) {
+          setFolders(updatedFolders);
+          await AsyncStorage.setItem('shiv_mobile_folders', JSON.stringify(updatedFolders));
+        }
+      }
+
+      // Fetch transaction history from shared server
+      const serverTx = await mobileApi.fetchTransactions(100);
+      if (Array.isArray(serverTx) && serverTx.length > 0) {
+        const formattedTx: Transaction[] = serverTx.map((t) => ({
+          id: t.id,
+          sku: t.sku,
+          category: t.category,
+          type: t.type as any,
+          change: t.quantity_change,
+          balance: t.new_quantity,
+          time: t.created_at
+            ? new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : '',
+          note: t.reason || t.reference || undefined,
+        }));
+        setTransactions(formattedTx);
+        await AsyncStorage.setItem('shiv_mobile_tx', JSON.stringify(formattedTx));
+      }
+
+      setSyncStatus('synced');
+    } catch (err) {
+      console.warn('Could not sync with Render backend, running with local cache:', err);
+      setSyncStatus('offline');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Load from local storage immediately for speed, then sync with live Render backend
   useEffect(() => {
     async function loadData() {
+      let currentFolders = DEFAULT_FOLDERS;
       try {
-        // Load folders
+        // 1. Load folders from local cache
         const storedFolders = await AsyncStorage.getItem('shiv_mobile_folders');
-        let currentFolders = DEFAULT_FOLDERS;
         if (storedFolders) {
           try {
             const parsed = JSON.parse(storedFolders);
@@ -111,7 +195,7 @@ export default function App() {
           await AsyncStorage.setItem('shiv_mobile_folders', JSON.stringify(DEFAULT_FOLDERS));
         }
 
-        // Load items
+        // 2. Load stock items from local cache
         const storedStock = await AsyncStorage.getItem('shiv_mobile_stock');
         if (storedStock) {
           const parsedStock: Item[] = JSON.parse(storedStock).map((it: any) => ({
@@ -136,14 +220,17 @@ export default function App() {
           await AsyncStorage.setItem('shiv_mobile_stock', JSON.stringify(initial));
         }
 
-        // Load transactions
+        // 3. Load transactions from local cache
         const storedTx = await AsyncStorage.getItem('shiv_mobile_tx');
         if (storedTx) {
           setTransactions(JSON.parse(storedTx));
         }
       } catch (e) {
-        console.error('Error loading mobile stock:', e);
+        console.error('Error loading mobile stock cache:', e);
       }
+
+      // 4. Perform cloud sync with Render backend & Supabase
+      await syncWithServer(currentFolders);
     }
     loadData();
   }, []);
@@ -163,7 +250,7 @@ export default function App() {
     await AsyncStorage.setItem('shiv_mobile_folders', JSON.stringify(newFolders));
   };
 
-  const handleStockAdjust = (sku: string, type: 'IN' | 'OUT', delta: number, note?: string) => {
+  const handleStockAdjust = async (sku: string, type: 'IN' | 'OUT', delta: number, note?: string) => {
     const item = items.find((i) => i.sku === sku);
     if (!item) return;
 
@@ -175,6 +262,7 @@ export default function App() {
     const prev = item.quantity;
     const next = type === 'IN' ? prev + delta : prev - delta;
 
+    // Optimistic UI update
     const updated = items.map((i) => (i.sku === sku ? { ...i, quantity: next } : i));
     const tx: Transaction = {
       id: Date.now().toString(),
@@ -188,6 +276,25 @@ export default function App() {
     };
 
     saveItems(updated, tx);
+
+    // Persist adjustment directly to Render & Supabase
+    try {
+      if (type === 'IN') {
+        const res = await mobileApi.stockIn(item.id || item.sku, delta, 'Mobile App', note);
+        if (res?.item?.id && !item.id) {
+          setItems((curr) => curr.map((it) => (it.sku === sku ? { ...it, id: res.item.id } : it)));
+        }
+      } else {
+        const res = await mobileApi.stockOut(item.id || item.sku, delta, 'Mobile App', note);
+        if (res?.item?.id && !item.id) {
+          setItems((curr) => curr.map((it) => (it.sku === sku ? { ...it, id: res.item.id } : it)));
+        }
+      }
+      setSyncStatus('synced');
+    } catch (e: any) {
+      console.warn('Server sync warning:', e.message);
+      setSyncStatus('offline');
+    }
   };
 
   // Active folder object if not 'all'
@@ -381,6 +488,26 @@ export default function App() {
     const updatedItems = [newItem, ...items];
     await saveItems(updatedItems, qty > 0 ? newTx : undefined);
 
+    // Call server to persist in Render/Supabase
+    try {
+      const serverItem = await mobileApi.createSheet({
+        code,
+        finish,
+        name: newItem.name,
+        category: folder,
+        quantity: qty,
+        min_threshold: minThreshold,
+      });
+      if (serverItem && serverItem.id) {
+        setItems((current) =>
+          current.map((it) => (it.sku === sku ? { ...it, id: serverItem.id } : it))
+        );
+      }
+      setSyncStatus('synced');
+    } catch (e: any) {
+      console.warn('Server create sheet sync warning:', e.message);
+    }
+
     // Also update folder finishes if not present
     const targetFolder = folders.find((f) => f.name === folder);
     if (targetFolder && !targetFolder.finishes.includes(finish)) {
@@ -414,13 +541,39 @@ export default function App() {
             <Text style={styles.appTitle}>
               SHIV <Text style={styles.appAccent}>LAMINATE</Text>
             </Text>
-            <Text style={styles.appSubtitle}>
+            {/* <Text style={styles.appSubtitle}>
               {activeFolder ? `${activeFolder.name} Folder` : 'All Warehouse Folders'} &bull; Single Owner
-            </Text>
+            </Text> */}
           </View>
         </View>
 
         <View style={styles.topActions}>
+          <TouchableOpacity
+            style={[
+              styles.syncBadge,
+              syncStatus === 'synced' && styles.syncBadgeSynced,
+              syncStatus === 'syncing' && styles.syncBadgeSyncing,
+              syncStatus === 'offline' && styles.syncBadgeOffline,
+            ]}
+            onPress={() => syncWithServer()}
+            activeOpacity={0.7}
+          >
+            {isSyncing ? (
+              <ActivityIndicator size="small" color="#0284c7" />
+            ) : (
+              <View
+                style={[
+                  styles.syncDot,
+                  syncStatus === 'synced' && styles.syncDotSynced,
+                  syncStatus === 'offline' && styles.syncDotOffline,
+                ]}
+              />
+            )}
+            <Text style={styles.syncBadgeText}>
+              {syncStatus === 'synced' ? 'Live Cloud' : syncStatus === 'syncing' ? 'Syncing...' : 'Offline'}
+            </Text>
+          </TouchableOpacity>
+
           {lowStockCount > 0 && (
             <View style={styles.lowBadge}>
               <Text style={styles.lowBadgeText}>{lowStockCount} Low</Text>
@@ -565,6 +718,14 @@ export default function App() {
             data={filteredItems}
             keyExtractor={(i) => i.sku}
             contentContainerStyle={styles.listContainer}
+            refreshControl={
+              <RefreshControl
+                refreshing={isSyncing}
+                onRefresh={syncWithServer}
+                colors={['#0284c7']}
+                tintColor="#0284c7"
+              />
+            }
             renderItem={({ item }) => {
               const isLow = item.quantity <= item.min_threshold;
               const isOut = item.quantity === 0;
@@ -714,6 +875,14 @@ export default function App() {
           data={transactions}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={isSyncing}
+              onRefresh={syncWithServer}
+              colors={['#0284c7']}
+              tintColor="#0284c7"
+            />
+          }
           renderItem={({ item }) => (
             <View style={styles.txRow}>
               <View style={{ flex: 1 }}>
@@ -1444,4 +1613,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalConfirmText: { color: '#ffffff', fontWeight: '800' },
+  syncBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  syncBadgeSynced: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  syncBadgeSyncing: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  syncBadgeOffline: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  syncDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#94a3b8',
+  },
+  syncDotSynced: {
+    backgroundColor: '#10b981',
+  },
+  syncDotSyncing: {
+    backgroundColor: '#3b82f6',
+  },
+  syncDotOffline: {
+    backgroundColor: '#f59e0b',
+  },
+  syncBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
 });

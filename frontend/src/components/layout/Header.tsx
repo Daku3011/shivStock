@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {activeFolderName}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block">Single Owner Stock Management</p>
+              {/* <p className="text-[11px] text-slate-500 hidden sm:block">Single Owner Stock Management</p> */}
             </div>
           </div>
 
