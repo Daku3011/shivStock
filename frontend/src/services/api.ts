@@ -1,6 +1,7 @@
 import { LaminateItem, DashboardAnalytics, StockTransaction } from '../types';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const rawBase = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, '');
+const API_BASE = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
 
 function getAuthHeader(): Record<string, string> {
   const token = localStorage.getItem('shiv_stock_token');
