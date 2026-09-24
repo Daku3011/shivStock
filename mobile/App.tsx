@@ -13,6 +13,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import catalogData from './src/catalog.json';
@@ -403,13 +404,20 @@ export default function App() {
 
       {/* App Topbar - Clean Light Theme */}
       <View style={styles.topbar}>
-        <View>
-          <Text style={styles.appTitle}>
-            SHIV <Text style={styles.appAccent}>LAMINATE</Text>
-          </Text>
-          <Text style={styles.appSubtitle}>
-            {activeFolder ? `${activeFolder.name} Folder` : 'All Warehouse Folders'} &bull; Single Owner
-          </Text>
+        <View style={styles.brandRow}>
+          <Image
+            source={require('./assets/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+          <View>
+            <Text style={styles.appTitle}>
+              SHIV <Text style={styles.appAccent}>LAMINATE</Text>
+            </Text>
+            <Text style={styles.appSubtitle}>
+              {activeFolder ? `${activeFolder.name} Folder` : 'All Warehouse Folders'} &bull; Single Owner
+            </Text>
+          </View>
         </View>
 
         <View style={styles.topActions}>
@@ -1020,6 +1028,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logoImage: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    backgroundColor: '#0b0c0e',
   },
   appTitle: { fontSize: 18, fontWeight: '900', color: '#0f172a' },
   appAccent: { color: '#0284c7' },

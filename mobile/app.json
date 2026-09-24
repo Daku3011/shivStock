@@ -4,9 +4,12 @@
     "slug": "shiv-stock",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#0284c7"
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0c0e"
     },
     "ios": {
       "supportsTablet": true,
@@ -22,7 +25,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       "expo-asset"

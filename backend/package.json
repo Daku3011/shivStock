@@ -17,15 +17,15 @@
     "helmet": "^8.0.0",
     "morgan": "^1.10.0",
     "uuid": "^11.1.0",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
+    "zod": "^3.24.2",
+    "typescript": "^5.8.2",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.13.10",
-    "@types/uuid": "^10.0.0",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.2"
+    "@types/uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0"
   }
 }

@@ -62,9 +62,12 @@ export const QrModal: React.FC<QrModalProps> = ({ item, onClose }) => {
         {/* Printable Label Box */}
         <div id="printable-label" className="bg-slate-50 border border-slate-200 p-5 rounded-2xl mx-auto shadow-inner text-slate-900">
           <div className="border-b border-dashed border-slate-300 pb-2 mb-3">
-            <span className="text-[10px] uppercase font-black tracking-widest text-slate-500">
-              SHIV LAMINATE &bull; {item.category || 'COLLECTION'}
-            </span>
+            <div className="flex items-center space-x-2 mb-1">
+              <img src="/logo.png" alt="Shiv Laminate" className="h-6 w-auto rounded bg-black px-1 py-0.5 object-contain" />
+              <span className="text-[10px] uppercase font-black tracking-widest text-slate-500">
+                SHIV LAMINATE &bull; {item.category || 'COLLECTION'}
+              </span>
+            </div>
             <div className="text-2xl font-black tracking-tight text-slate-900">#{item.code}</div>
             <div className="text-xs font-bold text-sky-700 uppercase tracking-wider">{item.finish} {item.finish_name ? `- ${item.finish_name}` : ''}</div>
           </div>

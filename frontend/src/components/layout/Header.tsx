@@ -22,8 +22,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo & Name */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('inventory')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-purple-600 flex items-center justify-center shadow-md shadow-sky-500/20">
-              <Layers className="w-6 h-6 text-white" />
+            <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl overflow-hidden bg-black border border-slate-800 shadow-md shadow-slate-900/10 flex items-center justify-center p-0.5 shrink-0">
+              <img
+                src="/logo.png"
+                alt="Shiv Laminate"
+                className="h-full w-full object-contain rounded-lg"
+              />
             </div>
             <div>
               <div className="flex items-center space-x-2">
