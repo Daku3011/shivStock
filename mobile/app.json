@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Shiv Laminate Stock",
+    "slug": "shiv-stock",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0284c7"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.shivlaminate.stock",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app requires camera access to scan laminate QR codes and barcodes."
+      }
+    },
+    "android": {
+      "package": "com.shivlaminate.stock",
+      "permissions": ["CAMERA"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
