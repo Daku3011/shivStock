@@ -1,4 +1,4 @@
-import { LaminateItem, DashboardAnalytics, StockTransaction } from '../types';
+import { LaminateItem, DashboardAnalytics, StockTransaction, Folder } from '../types';
 
 const rawBase = (import.meta.env.VITE_API_URL || '/api').trim().replace(/\/+$/, '');
 const API_BASE = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
@@ -129,4 +129,82 @@ export const api = {
     const data = await res.json();
     return data.data;
   },
+
+  async createItem(
+    itemData: Partial<LaminateItem> & { code: string; finish: string }
+  ): Promise<{ success: boolean; data: LaminateItem; message: string }> {
+    const res = await fetch(`${API_BASE}/stock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(itemData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to create sheet item');
+    return data;
+  },
+
+  async deleteItem(id: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/stock/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to delete sheet item');
+    return data;
+  },
+
+  async getFolders(): Promise<{ success: boolean; count: number; data: Folder[] }> {
+    const res = await fetch(`${API_BASE}/folders`, {
+      headers: getAuthHeader(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch folders');
+    return res.json();
+  },
+
+  async createFolder(
+    folderData: { name: string; finishes?: string[] }
+  ): Promise<{ success: boolean; data: Folder; message: string }> {
+    const res = await fetch(`${API_BASE}/folders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(folderData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to create folder');
+    return data;
+  },
+
+  async updateFolder(
+    id: string,
+    folderData: { name?: string; finishes?: string[] }
+  ): Promise<{ success: boolean; data: Folder; message: string }> {
+    const res = await fetch(`${API_BASE}/folders/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
+      body: JSON.stringify(folderData),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to update folder');
+    return data;
+  },
+
+  async deleteFolder(id: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/folders/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: getAuthHeader(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to delete folder');
+    return data;
+  },
 };
+

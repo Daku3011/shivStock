@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Minus, QrCode, AlertCircle, ArrowDownRight, ArrowUpRight, MapPin } from 'lucide-react';
+import { Plus, Minus, QrCode, AlertCircle, ArrowDownRight, ArrowUpRight, MapPin, Trash2 } from 'lucide-react';
 import { LaminateItem } from '../../types';
 
 interface StockCardProps {
@@ -8,6 +8,7 @@ interface StockCardProps {
   onStockOut: (item: LaminateItem) => void;
   onQuickAdjust: (item: LaminateItem, delta: number) => void;
   onViewQr: (item: LaminateItem) => void;
+  onDeleteItem?: (item: LaminateItem) => void;
 }
 
 export const StockCard: React.FC<StockCardProps> = ({
@@ -16,6 +17,7 @@ export const StockCard: React.FC<StockCardProps> = ({
   onStockOut,
   onQuickAdjust,
   onViewQr,
+  onDeleteItem,
 }) => {
   const isOutOfStock = item.quantity === 0;
   const isLowStock = item.quantity > 0 && item.quantity <= item.min_threshold;
@@ -41,13 +43,24 @@ export const StockCard: React.FC<StockCardProps> = ({
           </span>
         </div>
 
-        <button
-          onClick={() => onViewQr(item)}
-          title="View QR Code Label"
-          className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
-        >
-          <QrCode className="w-4 h-4" />
-        </button>
+        <div className="flex items-center space-x-1.5">
+          <button
+            onClick={() => onViewQr(item)}
+            title="View QR Code Label"
+            className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
+          >
+            <QrCode className="w-4 h-4" />
+          </button>
+          {onDeleteItem && (
+            <button
+              onClick={() => onDeleteItem(item)}
+              title="Delete Sheet from Catalog"
+              className="p-1.5 rounded-lg bg-slate-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Middle Row: Code & Current Sheets Count */}

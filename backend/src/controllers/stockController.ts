@@ -149,3 +149,72 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
+export const deleteItem = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    await stockStore.deleteItem(id);
+    res.json({ success: true, message: 'Laminate sheet deleted successfully from catalog' });
+  } catch (error: any) {
+    res.status(404).json({ success: false, message: error.message });
+  }
+};
+
+export const getFolders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const folders = await stockStore.getFolders();
+    res.json({ success: true, count: folders.length, data: folders });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const createFolder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { name, finishes } = req.body;
+    if (!name || !String(name).trim()) {
+      res.status(400).json({ success: false, message: 'Folder name is required.' });
+      return;
+    }
+    const folder = await stockStore.createFolder({
+      name: String(name),
+      finishes: Array.isArray(finishes) ? finishes.map(String) : undefined,
+    });
+    res.status(201).json({
+      success: true,
+      message: `Successfully created folder "${folder.name}"`,
+      data: folder,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const updateFolder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const { name, finishes } = req.body;
+    const folder = await stockStore.updateFolder(id, {
+      name: name !== undefined ? String(name) : undefined,
+      finishes: Array.isArray(finishes) ? finishes.map(String) : undefined,
+    });
+    res.json({
+      success: true,
+      message: `Successfully updated folder "${folder.name}"`,
+      data: folder,
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteFolder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = String(req.params.id);
+    const result = await stockStore.deleteFolder(id);
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
+

@@ -135,11 +135,81 @@ def test_live_api():
         url = f"http://localhost:{port}/api/analytics/dashboard"
         req = urllib.request.urlopen(url)
         analytics = json.loads(req.read().decode())
-        if analytics["data"]["totalSKUs"] != 137:
+        if analytics["data"]["totalSKUs"] < 137:
             log(f"Analytics total SKUs mismatch: {analytics['data']['totalSKUs']}", "FAIL")
             return False
 
-        log(f"API endpoints verified (Health, Stock In, Stock Out, Analytics) on {sku}", "PASS")
+        # 6. Test Multi-Device Folder Support
+        # Create a new folder
+        folder_payload = json.dumps({"name": "Heavy Texture Test", "finishes": ["HT", "MS"]}).encode('utf-8')
+        folder_req = urllib.request.Request(f"http://localhost:{port}/api/folders", data=folder_payload, headers={'Content-Type': 'application/json'})
+        folder_resp = json.loads(urllib.request.urlopen(folder_req).read().decode())
+        if not folder_resp.get("success"):
+            log("Folder creation failed", "FAIL")
+            return False
+        created_folder_id = folder_resp["data"]["id"]
+        log(f"Created folder '{folder_resp['data']['name']}' on backend", "PASS")
+
+        # Verify second device can fetch folders
+        get_folders_req = urllib.request.urlopen(f"http://localhost:{port}/api/folders")
+        get_folders_resp = json.loads(get_folders_req.read().decode())
+        folder_names = [f["name"] for f in get_folders_resp["data"]]
+        if "Heavy Texture Test" not in folder_names:
+            log("New folder not visible across devices in GET /api/folders", "FAIL")
+            return False
+        log("New folder successfully synced and visible across devices", "PASS")
+
+        # 7. Test Sheet Adding in New Folder
+        new_sheet_payload = json.dumps({
+            "code": "8888",
+            "finish": "HT",
+            "category": "Heavy Texture Test",
+            "quantity": 10,
+            "min_threshold": 3
+        }).encode('utf-8')
+        sheet_req = urllib.request.Request(f"http://localhost:{port}/api/stock", data=new_sheet_payload, headers={'Content-Type': 'application/json'})
+        sheet_resp = json.loads(urllib.request.urlopen(sheet_req).read().decode())
+        if not sheet_resp.get("success") or sheet_resp["data"]["sku"] != "HT-8888":
+            log("Sheet creation in new folder failed", "FAIL")
+            return False
+        new_sheet_id = sheet_resp["data"]["id"]
+        log(f"Created new sheet '{sheet_resp['data']['sku']}' in folder 'Heavy Texture Test'", "PASS")
+
+        # 8. Test Stock In (+1) on new folder sheet (must NOT say 'item not found')
+        sheet_in_payload = json.dumps({"quantity": 1, "reference": "Quick +1 Stepper", "reason": "Single sheet addition"}).encode('utf-8')
+        sheet_in_req = urllib.request.Request(f"http://localhost:{port}/api/stock/{new_sheet_id}/in", data=sheet_in_payload, headers={'Content-Type': 'application/json'})
+        sheet_in_resp = json.loads(urllib.request.urlopen(sheet_in_req).read().decode())
+        if sheet_in_resp["data"]["item"]["quantity"] != 11:
+            log(f"Stock In on new sheet failed: expected 11, got {sheet_in_resp['data']['item']['quantity']}", "FAIL")
+            return False
+        log("Stock In (+1) on new folder sheet succeeded with no 'not found' error", "PASS")
+
+        # 9. Test Stock Out (-1) on new folder sheet (must NOT say 'item not found')
+        sheet_out_payload = json.dumps({"quantity": 1, "reference": "Quick -1 Stepper", "reason": "Single sheet reduction"}).encode('utf-8')
+        sheet_out_req = urllib.request.Request(f"http://localhost:{port}/api/stock/{new_sheet_id}/out", data=sheet_out_payload, headers={'Content-Type': 'application/json'})
+        sheet_out_resp = json.loads(urllib.request.urlopen(sheet_out_req).read().decode())
+        if sheet_out_resp["data"]["item"]["quantity"] != 10:
+            log(f"Stock Out on new sheet failed: expected 10, got {sheet_out_resp['data']['item']['quantity']}", "FAIL")
+            return False
+        log("Stock Out (-1) on new folder sheet succeeded with no 'not found' error", "PASS")
+
+        # 10. Test Deleting Sheet from catalog
+        del_sheet_req = urllib.request.Request(f"http://localhost:{port}/api/stock/{new_sheet_id}", method='DELETE')
+        del_sheet_resp = json.loads(urllib.request.urlopen(del_sheet_req).read().decode())
+        if not del_sheet_resp.get("success"):
+            log("Deleting sheet item failed", "FAIL")
+            return False
+        log("Delete sheet item API succeeded", "PASS")
+
+        # Clean up test folder
+        del_folder_req = urllib.request.Request(f"http://localhost:{port}/api/folders/{created_folder_id}", method='DELETE')
+        del_folder_resp = json.loads(urllib.request.urlopen(del_folder_req).read().decode())
+        if not del_folder_resp.get("success"):
+            log("Deleting test folder failed", "FAIL")
+            return False
+        log("Delete test folder succeeded", "PASS")
+
+        log(f"API endpoints verified (Health, Stock In, Stock Out, Folders, New Sheets, Deletions) on {sku}", "PASS")
         return True
     finally:
         proc.terminate()

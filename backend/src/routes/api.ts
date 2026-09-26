@@ -8,6 +8,11 @@ import {
   adjustStock,
   getTransactions,
   createItem,
+  deleteItem,
+  getFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
 } from '../controllers/stockController';
 import { getDashboardAnalytics } from '../controllers/analyticsController';
 import { loginWithPin, verifySession } from '../controllers/authController';
@@ -27,11 +32,18 @@ router.get('/health', (req, res) => {
 router.post('/auth/login', loginWithPin);
 router.get('/auth/verify', verifySession);
 
+// Folders endpoints
+router.get('/folders', getFolders);
+router.post('/folders', createFolder);
+router.put('/folders/:id', updateFolder);
+router.delete('/folders/:id', deleteFolder);
+
 // Stock endpoints
 router.get('/stock', getStock);
 router.post('/stock', createItem);
 router.get('/stock/sku/:sku', getItemBySku);
 router.get('/stock/:id', getItemById);
+router.delete('/stock/:id', deleteItem);
 router.post('/stock/:id/in', stockIn);
 router.post('/stock/:id/out', stockOut);
 router.post('/stock/:id/adjust', adjustStock);

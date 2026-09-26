@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, SlidersHorizontal, RefreshCw, Sparkles, Check, AlertCircle, FolderPlus, Plus, Folder as FolderIcon, Pencil, Trash2 } from 'lucide-react';
-import { LaminateItem, DashboardAnalytics, StockTransaction } from './types';
+import { LaminateItem, DashboardAnalytics, StockTransaction, Folder } from './types';
 import { api } from './services/api';
 import { Header } from './components/layout/Header';
 import { FinishTabs } from './components/stock/FinishTabs';
@@ -12,12 +12,7 @@ import { ScannerModal } from './components/stock/ScannerModal';
 import { AnalyticsView } from './components/analytics/AnalyticsView';
 import { TransactionTable } from './components/transactions/TransactionTable';
 
-export interface Folder {
-  id: string;
-  name: string;
-  finishes: string[];
-  createdAt: string;
-}
+export type { Folder };
 
 const DEFAULT_FOLDERS: Folder[] = [
   {
@@ -90,47 +85,88 @@ export function App() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (isBackground = false) => {
     try {
-      setRefreshing(true);
-      const [stockRes, analyticsData, txData] = await Promise.all([
+      if (!isBackground) setRefreshing(true);
+      const [foldersRes, stockRes, analyticsData, txData] = await Promise.all([
+        api.getFolders().catch(() => null),
         api.getStock(),
-        api.getAnalytics(),
-        api.getTransactions(50),
+        api.getAnalytics().catch(() => null),
+        api.getTransactions(50).catch(() => null),
       ]);
 
-      // Merge local newly added items if any
+      if (foldersRes && Array.isArray(foldersRes.data) && foldersRes.data.length > 0) {
+        setFolders(foldersRes.data);
+        localStorage.setItem('shiv_folders', JSON.stringify(foldersRes.data));
+      }
+
+      // Sync legacy local custom items if any to backend
       const localStockRaw = localStorage.getItem('shiv_custom_stock');
-      let customItems: LaminateItem[] = [];
       if (localStockRaw) {
         try {
-          customItems = JSON.parse(localStockRaw);
+          const customItems: LaminateItem[] = JSON.parse(localStockRaw);
+          if (Array.isArray(customItems) && customItems.length > 0) {
+            const existingSkus = new Set(stockRes.data.map((i) => i.sku.toUpperCase()));
+            for (const ci of customItems) {
+              if (!existingSkus.has(ci.sku.toUpperCase())) {
+                try {
+                  const created = await api.createItem({
+                    code: ci.code,
+                    finish: ci.finish,
+                    category: ci.category || 'Pastel Colour',
+                    quantity: ci.quantity,
+                    min_threshold: ci.min_threshold,
+                  });
+                  stockRes.data.unshift(created.data);
+                } catch (e) {
+                  console.warn('Could not sync local item to backend', e);
+                }
+              }
+            }
+            localStorage.removeItem('shiv_custom_stock');
+          }
         } catch (e) {
           console.error(e);
         }
       }
 
-      const merged = [...stockRes.data.map((i) => ({ ...i, category: i.category || 'Pastel Colour' }))];
-      customItems.forEach((ci) => {
-        if (!merged.some((m) => m.sku === ci.sku)) {
-          merged.unshift(ci);
-        }
-      });
-
+      const merged = stockRes.data.map((i) => ({ ...i, category: i.category || 'Pastel Colour' }));
       setItems(merged);
-      setAnalytics(analyticsData);
-      setTransactions(txData);
+      if (analyticsData) setAnalytics(analyticsData);
+      if (txData) setTransactions(txData);
     } catch (err: any) {
       console.error('Error fetching stock data:', err);
-      showToast('Could not sync with backend. Using local data.', 'error');
+      if (!isBackground) {
+        showToast('Could not sync with backend. Check connection.', 'error');
+      }
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      if (!isBackground) setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     loadData();
+
+    // Background polling every 8 seconds for multi-device synchronization
+    const interval = setInterval(() => {
+      loadData(true);
+    }, 8000);
+
+    // Sync when user returns to this tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [loadData]);
 
   // Active folder object
@@ -282,7 +318,7 @@ export function App() {
   };
 
   // Create Folder Handler
-  const handleCreateFolder = (e: React.FormEvent) => {
+  const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newFolderName.trim();
     if (!name) return;
@@ -293,22 +329,23 @@ export function App() {
       return;
     }
 
-    const folderId = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const newFolder: Folder = {
-      id: folderId,
-      name,
-      finishes: selectedFolderFinishes.length > 0 ? selectedFolderFinishes : ['MS', 'HT'],
-      createdAt: new Date().toISOString(),
-    };
+    const finishes = selectedFolderFinishes.length > 0 ? selectedFolderFinishes : ['MS', 'HT'];
 
-    const updated = [...folders, newFolder];
-    setFolders(updated);
-    localStorage.setItem('shiv_folders', JSON.stringify(updated));
-    setSelectedFolderId(newFolder.id);
-    setShowAddFolderModal(false);
-    setNewFolderName('');
-    setSelectedFolderFinishes(['MS', 'HT']);
-    showToast(`Created folder "${name}"!`);
+    try {
+      const res = await api.createFolder({ name, finishes });
+      const createdFolder = res.data;
+      const updated = [...folders, createdFolder];
+      setFolders(updated);
+      localStorage.setItem('shiv_folders', JSON.stringify(updated));
+      setSelectedFolderId(createdFolder.id);
+      setShowAddFolderModal(false);
+      setNewFolderName('');
+      setSelectedFolderFinishes(['MS', 'HT']);
+      showToast(`Created folder "${name}"!`);
+      loadData(true);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create folder', 'error');
+    }
   };
 
   // Open Edit Folder Modal
@@ -321,7 +358,7 @@ export function App() {
   };
 
   // Save Edit Folder Handler
-  const handleSaveEditFolder = (e: React.FormEvent) => {
+  const handleSaveEditFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFolder) return;
     const trimmed = editFolderName.trim();
@@ -338,37 +375,24 @@ export function App() {
       return;
     }
 
-    const oldName = editingFolder.name;
-    const updatedFolders = folders.map((f) =>
-      f.id === editingFolder.id
-        ? {
-            ...f,
-            name: trimmed,
-            finishes: editFolderFinishes.length > 0 ? editFolderFinishes : ['MS', 'HT'],
-          }
-        : f
-    );
+    const finishes = editFolderFinishes.length > 0 ? editFolderFinishes : ['MS', 'HT'];
 
-    setFolders(updatedFolders);
-    localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
-
-    // Update categories of items belonging to this folder if name changed
-    if (oldName.toLowerCase() !== trimmed.toLowerCase()) {
-      const updatedItems = items.map((it) =>
-        (it.category || 'Pastel Colour').toLowerCase() === oldName.toLowerCase()
-          ? { ...it, category: trimmed }
-          : it
-      );
-      setItems(updatedItems);
-      localStorage.setItem('shiv_custom_stock', JSON.stringify(updatedItems));
+    try {
+      const res = await api.updateFolder(editingFolder.id, { name: trimmed, finishes });
+      const updatedFolder = res.data;
+      const updatedFolders = folders.map((f) => (f.id === editingFolder.id ? updatedFolder : f));
+      setFolders(updatedFolders);
+      localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
+      setEditingFolder(null);
+      showToast(`Folder "${trimmed}" updated!`);
+      loadData(true);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update folder', 'error');
     }
-
-    setEditingFolder(null);
-    showToast(`Folder "${trimmed}" updated!`);
   };
 
   // Delete Folder Handler
-  const handleDeleteFolder = (folderId: string, e?: React.MouseEvent) => {
+  const handleDeleteFolder = async (folderId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const folder = folders.find((f) => f.id === folderId);
     if (!folder) return;
@@ -388,29 +412,23 @@ export function App() {
 
     if (!window.confirm(confirmMsg)) return;
 
-    const fallbackFolder = folders.find((f) => f.id !== folderId) || DEFAULT_FOLDERS[0];
-    const updatedFolders = folders.filter((f) => f.id !== folderId);
-    setFolders(updatedFolders);
-    localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
-
-    // Reassign items to fallback folder
-    const updatedItems = items.map((it) =>
-      (it.category || 'Pastel Colour').toLowerCase() === folder.name.toLowerCase()
-        ? { ...it, category: fallbackFolder.name }
-        : it
-    );
-    setItems(updatedItems);
-    localStorage.setItem('shiv_custom_stock', JSON.stringify(updatedItems));
-
-    if (selectedFolderId === folderId) {
-      setSelectedFolderId('all');
+    try {
+      await api.deleteFolder(folderId);
+      const updatedFolders = folders.filter((f) => f.id !== folderId);
+      setFolders(updatedFolders);
+      localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
+      if (selectedFolderId === folderId) {
+        setSelectedFolderId('all');
+      }
+      showToast(`Deleted folder "${folder.name}".`);
+      loadData(true);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete folder', 'error');
     }
-
-    showToast(`Deleted folder "${folder.name}".`);
   };
 
   // Create Sheet Handler
-  const handleCreateSheet = (e: React.FormEvent) => {
+  const handleCreateSheet = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = newSheetCode.trim();
     const finish = newSheetFinish.trim().toUpperCase();
@@ -428,45 +446,56 @@ export function App() {
       return;
     }
 
-    const newItem: LaminateItem = {
-      id: `custom-${Date.now()}`,
-      sku,
-      code,
-      finish,
-      finish_name: `${finish} Finish`,
-      name: `Shiv ${folder} ${code} (${finish})`,
-      category: folder,
-      brand: 'SHIV LAMINATE',
-      quantity: Number(newSheetQty) || 0,
-      min_threshold: Number(newSheetMin) || 5,
-      unit_price: 850,
-      location: 'Warehouse Rack',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    try {
+      const res = await api.createItem({
+        code,
+        finish,
+        category: folder,
+        quantity: Number(newSheetQty) || 0,
+        min_threshold: Number(newSheetMin) || 5,
+        unit_price: 850,
+      });
 
-    const updatedItems = [newItem, ...items];
-    setItems(updatedItems);
+      const newItem = res.data;
+      setItems((prev) => [newItem, ...prev]);
 
-    // Save custom items locally
-    const customList = updatedItems.filter((i) => i.id.startsWith('custom-'));
-    localStorage.setItem('shiv_custom_stock', JSON.stringify(customList));
+      // Update folder finishes if missing
+      const targetFolder = folders.find((f) => f.name.toLowerCase() === folder.toLowerCase());
+      if (targetFolder && !targetFolder.finishes.includes(finish)) {
+        const updatedFolders = folders.map((f) =>
+          f.id === targetFolder.id ? { ...f, finishes: [...f.finishes, finish] } : f
+        );
+        setFolders(updatedFolders);
+        localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
+      }
 
-    // Update folder finishes if missing
-    const targetFolder = folders.find((f) => f.name === folder);
-    if (targetFolder && !targetFolder.finishes.includes(finish)) {
-      const updatedFolders = folders.map((f) =>
-        f.id === targetFolder.id ? { ...f, finishes: [...f.finishes, finish] } : f
-      );
-      setFolders(updatedFolders);
-      localStorage.setItem('shiv_folders', JSON.stringify(updatedFolders));
+      setShowAddSheetModal(false);
+      setNewSheetCode('');
+      setNewSheetQty(12);
+      setNewSheetMin(5);
+      showToast(`Added sheet ${sku} to folder "${folder}"!`);
+
+      api.getAnalytics().then(setAnalytics).catch(console.error);
+      api.getTransactions(50).then(setTransactions).catch(console.error);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to create sheet', 'error');
     }
+  };
 
-    setShowAddSheetModal(false);
-    setNewSheetCode('');
-    setNewSheetQty(12);
-    setNewSheetMin(5);
-    showToast(`Added sheet ${sku} to folder "${folder}"!`);
+  // Delete Sheet Handler
+  const handleDeleteItem = async (item: LaminateItem) => {
+    const confirmMsg = `Are you sure you want to delete sheet "${item.sku}"? This will permanently remove it from the catalog.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await api.deleteItem(item.id);
+      setItems((prev) => prev.filter((i) => i.id !== item.id));
+      showToast(`Sheet "${item.sku}" deleted successfully`);
+      api.getAnalytics().then(setAnalytics).catch(console.error);
+      api.getTransactions(50).then(setTransactions).catch(console.error);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete sheet', 'error');
+    }
   };
 
   return (
@@ -657,7 +686,7 @@ export function App() {
                 </div>
 
                 <button
-                  onClick={loadData}
+                  onClick={() => loadData()}
                   disabled={refreshing}
                   title="Reload Stock Data"
                   className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-50"
@@ -722,6 +751,7 @@ export function App() {
                     onStockOut={(i) => setSelectedItemForOut(i)}
                     onQuickAdjust={handleQuickAdjust}
                     onViewQr={(i) => setSelectedItemForQr(i)}
+                    onDeleteItem={handleDeleteItem}
                   />
                 ))}
               </div>

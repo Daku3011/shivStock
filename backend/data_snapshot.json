@@ -9,13 +9,13 @@
       "name": "Shiv Pastel 1901 (SMT)",
       "category": "Pastel Colour",
       "brand": "SHIV LAMINATE",
-      "quantity": 13,
+      "quantity": 16,
       "min_threshold": 5,
       "unit_price": 850,
       "location": "Rack SM-01",
       "notes": "",
       "created_at": "2026-09-24T04:50:30.671Z",
-      "updated_at": "2026-09-24T04:57:18.911Z"
+      "updated_at": "2026-09-26T07:14:25.911Z"
     },
     {
       "id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
@@ -2332,6 +2332,78 @@
   ],
   "transactions": [
     {
+      "id": "f38078af-50bf-48ec-a7f2-8bb803c2ce24",
+      "item_id": "b29f47e6-8426-48cb-82e2-af16b582fb53",
+      "sku": "HT-8888",
+      "type": "OUT",
+      "quantity_change": -10,
+      "previous_quantity": 10,
+      "new_quantity": 0,
+      "reference": "Catalog Deletion",
+      "reason": "Sheet HT-8888 permanently removed from folder",
+      "created_at": "2026-09-26T07:14:25.922Z"
+    },
+    {
+      "id": "1e20d3d6-fc64-44ff-af9e-77fd60074daa",
+      "item_id": "b29f47e6-8426-48cb-82e2-af16b582fb53",
+      "sku": "HT-8888",
+      "type": "OUT",
+      "quantity_change": -1,
+      "previous_quantity": 11,
+      "new_quantity": 10,
+      "reference": "Quick -1 Stepper",
+      "reason": "Single sheet reduction",
+      "created_at": "2026-09-26T07:14:25.920Z"
+    },
+    {
+      "id": "a1a9a8d0-8fa7-485d-b177-dcaaba2232c6",
+      "item_id": "b29f47e6-8426-48cb-82e2-af16b582fb53",
+      "sku": "HT-8888",
+      "type": "IN",
+      "quantity_change": 1,
+      "previous_quantity": 10,
+      "new_quantity": 11,
+      "reference": "Quick +1 Stepper",
+      "reason": "Single sheet addition",
+      "created_at": "2026-09-26T07:14:25.918Z"
+    },
+    {
+      "id": "53458833-d616-436c-a05a-75942ec8c6a5",
+      "item_id": "b29f47e6-8426-48cb-82e2-af16b582fb53",
+      "sku": "HT-8888",
+      "type": "IN",
+      "quantity_change": 10,
+      "previous_quantity": 0,
+      "new_quantity": 10,
+      "reference": "Initial Stock Addition",
+      "reason": "New catalog entry created",
+      "created_at": "2026-09-26T07:14:25.917Z"
+    },
+    {
+      "id": "dac794c1-678f-4f6f-80dd-44d0ce1d25f0",
+      "item_id": "8bfddc57-c34f-4d80-a66d-22a6109bf8d6",
+      "sku": "SMT-1901",
+      "type": "OUT",
+      "quantity_change": -2,
+      "previous_quantity": 18,
+      "new_quantity": 16,
+      "reference": "Test Client",
+      "reason": "Test Outward",
+      "created_at": "2026-09-26T07:14:25.911Z"
+    },
+    {
+      "id": "3bc65371-056c-4a36-ab90-0951afc8330e",
+      "item_id": "8bfddc57-c34f-4d80-a66d-22a6109bf8d6",
+      "sku": "SMT-1901",
+      "type": "IN",
+      "quantity_change": 5,
+      "previous_quantity": 13,
+      "new_quantity": 18,
+      "reference": "Test Supplier",
+      "reason": "Test Inward",
+      "created_at": "2026-09-26T07:14:25.908Z"
+    },
+    {
       "id": "0703b800-f4f1-499c-a3cd-21ba7d6f7a9e",
       "item_id": "ae5ed0f3-88d9-4926-8968-d6a7722ff601",
       "sku": "HG-1901",
@@ -2534,6 +2606,26 @@
       "reference": "Initial Factory Inward",
       "reason": "Shiv Laminate Production Batch #1",
       "created_at": "2026-09-21T14:46:17.546Z"
+    }
+  ],
+  "folders": [
+    {
+      "id": "pastel-colour",
+      "name": "Pastel Colour",
+      "finishes": [
+        "SMT",
+        "HG",
+        "SF",
+        "MS",
+        "BO",
+        "FS",
+        "CP",
+        "BR",
+        "GW",
+        "STN",
+        "HGS"
+      ],
+      "createdAt": "2026-09-26T07:14:23.960Z"
     }
   ]
 }

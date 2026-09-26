@@ -43,3 +43,11 @@ export interface DashboardAnalytics {
   recentTransactions: StockTransaction[];
   topMovingShades: { code: string; totalMoved: number }[];
 }
+
+export interface Folder {
+  id: string;
+  name: string;
+  finishes: string[];
+  createdAt: string;
+}
+
